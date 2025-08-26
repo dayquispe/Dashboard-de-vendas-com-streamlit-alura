@@ -16,18 +16,38 @@ def formata_numero(valor, prefixo=''):
 st.title("DASHBOARD DE VENDAS 🛒")
 
 url = "https://labdados.com/produtos"
-response = requests.get(url)
+regioes = ["Brasil", "Centro-Oeste", "Nordeste", "Norte", "Sudeste", "Sul"]
+
+st.sidebar.title("Filtros")
+regiao = st.sidebar.selectbox("Região", regioes) #Filtrando regiao
+
+if regiao == "Brasil":
+    regiao = ""
+
+todos_anos = st.sidebar.checkbox("Dados de todo o periodo", value=True) #Filtrando o ano
+if todos_anos:
+    ano = ""
+else:
+    ano = st.sidebar.slider("Ano", 2020, 2023)
+
+query_string = {"regiao":regiao.lower(), "ano":ano}
+response = requests.get(url, params=query_string) #dessa maneira os filtros já estão funcionando
 # request > json > DataFrame
 dados = pd.DataFrame.from_dict(response.json())
 # Transformado a coluna para datetime
 dados["Data da Compra"] = pd.to_datetime(dados["Data da Compra"], format = "%d/%m/%Y")
+
+#Filtro dos vendedores
+filtro_vendedores = st.sidebar.multiselect("Vendedores", dados["Vendedor"].unique())
+if filtro_vendedores:
+    dados = dados[dados["Vendedor"].isin(filtro_vendedores)]
 
 ## Tabelas
 ### Tabelas de receita
 receita_estados = dados.groupby("Local da compra")[["Preço"]].sum()
 receita_estados = dados.drop_duplicates(subset="Local da compra")[["Local da compra", "lat", "lon"]].merge(receita_estados, left_on="Local da compra", right_index=True).sort_values("Preço", ascending=False)
 
-receita_mensal = dados.set_index("Data da Compra").groupby(pd.Grouper(freq = "M"))["Preço"].sum().reset_index()
+receita_mensal = dados.set_index("Data da Compra").groupby(pd.Grouper(freq = "ME"))["Preço"].sum().reset_index()
 receita_mensal["Ano"] = receita_mensal["Data da Compra"].dt.year
 receita_mensal["Mes"] = receita_mensal["Data da Compra"].dt.month_name()
 
@@ -38,7 +58,7 @@ receita_categorias = dados.groupby("Categoria do Produto")[["Preço"]].sum().sor
 vendas_estados = dados.groupby("Local da compra")[["Preço"]].count()
 vendas_estados = dados.drop_duplicates(subset="Local da compra")[["Local da compra", "lat", "lon"]].merge(vendas_estados, left_on="Local da compra", right_index=True).sort_values("Preço", ascending=False)
 ##__________
-venda_mensal = dados.set_index("Data da Compra").groupby(pd.Grouper(freq= "M"))["Preço"].count().reset_index()
+venda_mensal = dados.set_index("Data da Compra").groupby(pd.Grouper(freq= "ME"))["Preço"].count().reset_index()
 venda_mensal["Ano"] = venda_mensal["Data da Compra"].dt.year
 venda_mensal["Mes"] = venda_mensal["Data da Compra"].dt.month_name()
 ## ___
@@ -140,12 +160,12 @@ with aba2:
         st.metric("Receita", formata_numero(dados["Preço"].sum(), "R$"))
         #### __________________
         st.plotly_chart(fig_mapa_quantidade, use_container_width=True)
-        st.plotly_chart(fig_vendas_categoria, use_container_width=True)
+        st.plotly_chart(fig_vendas_estados, use_container_width=True)
 
     with coluna2:
         st.metric("Quantidade de vendas", formata_numero(dados.shape[0]))
         ## _________
-        st.plotly_chart(fig_vendas_estados, use_container_width=True)
+        st.plotly_chart(fig_qtd_venda_mensal, use_container_width=True)
         st.plotly_chart(fig_vendas_categoria, use_container_width=True)
 
 with aba3:
