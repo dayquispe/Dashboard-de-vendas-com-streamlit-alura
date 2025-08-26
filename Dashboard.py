@@ -152,8 +152,6 @@ with aba1:
         st.plotly_chart(fig_receita_mensal)
         st.plotly_chart(fig_receita_categorias, use_container_width=True)
 
-    st.dataframe(dados)
-
 with aba2:
     coluna1, coluna2 = st.columns(2)
     with coluna1:
